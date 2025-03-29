@@ -1,4 +1,6 @@
-# Project Name
+# StreamElementsWidgetTemplate
+
+Template for creating StreamElements widgets using Vue, Tailwind CSS, and NuxtUI (for Icons, etc.).
 
 
 ## Installation
