@@ -1,16 +1,20 @@
 /* eslint-disable ts/method-signature-style */
 
 declare global {
+
+  const SE_API: {
+    resumeQueue: () => void
+  }
   interface Window {
     addEventListener(
       type: 'onWidgetLoad',
-      listener: (ev: EventTypeMap<TProvider>['onWidgetLoad']) => void,
+      listener: (ev: EventTypeMap['onWidgetLoad']) => void,
       options?: boolean | AddEventListenerOptions
     ): void
 
     addEventListener(
       type: 'onEventReceived',
-      listener: (ev: EventTypeMap<TProvider>['onEventReceived']) => void,
+      listener: (ev: EventTypeMap['onEventReceived']) => void,
       options?: boolean | AddEventListenerOptions
     ): void
 
@@ -22,13 +26,13 @@ declare global {
   }
 }
 
-// TODO: Data from the input fields of the widget
+// these fields have to be defined in the json file
 interface FieldData {
-
+  widgetDuration: number | null | undefined
 }
 
 export interface EventTypeMap {
-  onWidgetLoad: OnWidgetLoadEvent
+  onWidgetLoad: OnWidgetLoadEvent<FieldData>
   onEventReceived: OnEventReceivedEvent
   onSessionUpdate: OnSessionUpdateEvent
 }
@@ -71,6 +75,9 @@ interface OnWidgetLoadEvent<TFieldData extends Record<string, any> | undefined =
       muted: boolean
     }
     fieldData: FieldData
+    session: {
+      data: TwitchData
+    }
   }
 }
 
@@ -421,51 +428,111 @@ interface TwitchFollowerEventDetails extends CommonDetails {
   }
 }
 
+// twitch has different events for the use cases.
+// user subs himself
+// user sub gifts a sub
+// user bulkGifts subs
+// user gifts a community sub (what ever that means)
+
+interface CommonTwitchSubscriberEventDetailsEvent {
+
+  /**
+   * Image URL
+   */
+  avatar: string
+  name: string
+  /**
+   * Name of the event on the streaming service (e.g. Twitch)
+   */
+  originalEventName: 'subscriber-latest'
+
+  /**
+   * The id provided by the streaming service (e.g. Twitch)
+   */
+  providerId: string
+
+  sessionTop: boolean
+  type: 'subscriber'
+  _id: string
+
+  /**
+   * The message sent by the user
+   * May also be an empty string
+   */
+  message?: string
+
+  tier?: 'prime' | '1000' | '2000' | '3000'
+
+  displayName: string
+
+}
+
+interface TwitchSubscriberEventDetailsEvent extends CommonTwitchSubscriberEventDetailsEvent {
+  /**
+   * Amount of months the user has been subscribed (this included)
+   * @example 1 means this is the first month (first time) the user is subscribed
+   */
+  amount: number
+
+  /**
+   * The amount of months the user has been subscribed to the channel
+   */
+  count?: number
+
+  gifted?: false
+
+  /**
+   * If this is the user with the most months subscribed this session (unsure?)
+   */
+  sessionTop: boolean
+}
+
+/**
+ * Played when a user gifts a subscription to another user directly
+ */
+interface TwitchGiftSubscriberEventDetailsEvent extends CommonTwitchSubscriberEventDetailsEvent {
+
+  /**
+   * This user has been gifted the subscription
+   */
+  gifted: true
+
+  /**
+   * Who gifted the subscription
+   */
+  sender: string
+
+  /**
+   * Indicates that this is a bulk gifting event (community gift)
+   */
+  isCommunityGift?: true
+
+  /**
+   * unsure what this is
+   */
+  playedAsCommunityGift?: boolean
+}
+
+/**
+ * Played when a user gifts multiple subscriptions to the community to random users
+ */
+interface TwitchBulkGiftingSubscriberEventDetailsEvent extends CommonTwitchSubscriberEventDetailsEvent {
+  /**
+   * The amount of subscriptions gifted (?)
+   */
+  amount: number
+
+  /**
+   * Indicates that this is a bulk gifting event
+   */
+  bulkGifted: true
+}
+
+type TwitchSubEvent = TwitchSubscriberEventDetailsEvent | TwitchGiftSubscriberEventDetailsEvent | TwitchBulkGiftingSubscriberEventDetailsEvent
+
 interface TwitchSubscriberEventDetails extends CommonDetails {
   listener: 'subscriber-latest'
-  event: {
-    $$hashKey: string
-
-    amount: number
-
-    message?: string
-
-    tier?: 'prime' | '1000' | '2000' | '3000'
-
-    /**
-     * Image URL
-     */
-    avatar: string
-    displayName: string
-    name: string
-    /**
-     * Name of the event on the streaming service (e.g. Twitch)
-     */
-    originalEventName: 'subscriber-latest'
-    /**
-     * The id provided by the streaming service (e.g. Twitch)
-     */
-    providerId: string
-
-    sessionTop: boolean
-    type: 'subscriber'
-    _id: string
-
-    /**
-     * Flag to indicate that the event is a gifted subscription
-     */
-    gifted?: true
-    /**
-     * Name of the sender of the gifted subscription
-     * Present only if `gifted` is `true`
-     */
-    sender?: string
-
-    /**
-     * Flag to indicate that the event is a community gift
-     */
-    isCommunityGift?: true
-  }
+  event: TwitchSubEvent
 }
 
 interface TwitchTipEventDetails extends CommonDetails {
